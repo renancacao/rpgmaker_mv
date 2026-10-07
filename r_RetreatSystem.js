@@ -451,27 +451,33 @@
     }
 
     // =========================================================
+    // =========================================================
     // TARGET WINDOW - INIMIGO
-
     // =========================================================
     var _Window_BattleEnemy_isCurrentItemEnabled =
         Window_BattleEnemy.prototype.isCurrentItemEnabled;
+
     Window_BattleEnemy.prototype.isCurrentItemEnabled = function () {
         var enabled =
             _Window_BattleEnemy_isCurrentItemEnabled.call(this);
+
         if (!enabled) {
             return false;
         }
+
         var action = BattleManager.inputtingAction();
+
         if (!action) {
             return enabled;
         }
+
         var subject = action.subject();
         var target = this.enemy();
         var range = getSkillRange(
             subject,
             action.item()
         );
+
         return canAttackTargetByRange(
             subject,
             target,
@@ -480,27 +486,32 @@
     };
 
     // =========================================================
-    // =========================================================
     // TARGET WINDOW - ATOR
     // =========================================================
     var _Window_BattleActor_isCurrentItemEnabled =
         Window_BattleActor.prototype.isCurrentItemEnabled;
+
     Window_BattleActor.prototype.isCurrentItemEnabled = function () {
         var enabled =
             _Window_BattleActor_isCurrentItemEnabled.call(this);
+
         if (!enabled) {
             return false;
         }
+
         var action = BattleManager.inputtingAction();
+
         if (!action) {
             return enabled;
         }
+
         var subject = action.subject();
         var target = this.actor();
         var range = getSkillRange(
             subject,
             action.item()
         );
+
         return canAttackTargetByRange(
             subject,
             target,
@@ -509,6 +520,58 @@
     };
 
     // =========================================================
+    // =========================================================
+    // DESENHO DOS ALVOS - INIMIGO
+    // =========================================================
+    // Cada inimigo é avaliado individualmente para que os alvos
+    // inalcançáveis permaneçam visíveis, porém desabilitados.
+    // =========================================================
+
+    var _Window_BattleEnemy_drawItem =
+        Window_BattleEnemy.prototype.drawItem;
+
+    Window_BattleEnemy.prototype.drawItem = function (index) {
+        var enemy = this._enemies[index];
+
+        if (!enemy) {
+            return;
+        }
+
+        var rect = this.itemRectForText(index);
+        var enabled = true;
+        var action = BattleManager.inputtingAction();
+
+        if (action) {
+            var subject = action.subject();
+            var range = getSkillRange(
+                subject,
+                action.item()
+            );
+
+            enabled = canAttackTargetByRange(
+                subject,
+                enemy,
+                range
+            );
+        }
+
+        this.changePaintOpacity(enabled);
+
+        this.drawText(
+            enemy.name(),
+            rect.x,
+            rect.y,
+            rect.width,
+            'center'
+        );
+
+        this.changePaintOpacity(true);
+    };
+
+    // =========================================================
+
+    // =========================================================
+
     // GAME ACTION - VALIDADE
 
     // =========================================================
