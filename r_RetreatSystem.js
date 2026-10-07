@@ -235,12 +235,25 @@
     // DISTÂNCIA DO ATAQUE BÁSICO
 
     // =========================================================
-    function getAttackRange(actor) {
-        if (!actor) {
+    function getAttackRange(battler) {
+        if (!battler) {
             return 'melee';
         }
-        var skill = $dataSkills[actor.attackSkillId()];
-        return getSkillRange(actor, skill);
+
+        var skill = $dataSkills[battler.attackSkillId()];
+
+        if (!skill) {
+            return 'melee';
+        }
+
+        // O ataque normal dos inimigos funciona como <weapon>,
+        // mas inimigos não possuem arma para fornecer a classificação.
+        // Portanto, para inimigos, o ataque normal é sempre melee.
+        if (!battler.isActor()) {
+            return 'melee';
+        }
+
+        return getSkillRange(battler, skill);
     }
 
     // =========================================================
@@ -600,6 +613,102 @@
         }
         return true;
     };
+
+    // =========================================================
+    // GAME ACTION - RETARGETING DE MELEE
+    // =========================================================
+    // Quando o alvo é escolhido automaticamente (principalmente
+    // pelas ações dos inimigos), a janela de seleção não participa
+    // da decisão. Por isso, ataques melee precisam respeitar aqui
+    // a regra de frente/retaguarda.
+    //
+    // Se o alvo original estiver efetivamente recuado e existir
+    // pelo menos um aliado dele na frente, o ataque é redirecionado
+    // para um alvo da frente.
+    //
+    // Se não existir ninguém na frente, o personagem recuado fica
+    // exposto e pode ser atingido normalmente.
+    // =========================================================
+
+    var _Game_Action_makeTargets =
+        Game_Action.prototype.makeTargets;
+
+    Game_Action.prototype.makeTargets = function () {
+        var targets = _Game_Action_makeTargets.call(this);
+        var subject = this.subject();
+
+        if (!subject || !targets || targets.length === 0) {
+            return targets;
+        }
+
+        var range;
+
+        // O ataque normal de inimigos é sempre melee.
+        if (
+            subject.isEnemy &&
+            subject.isEnemy() &&
+            this.item() === $dataSkills[subject.attackSkillId()]
+        ) {
+            range = 'melee';
+        } else {
+            range = getSkillRange(
+                subject,
+                this.item()
+            );
+        }
+
+        // Ataques ranged ignoram a formação.
+        if (range !== 'melee') {
+            return targets;
+        }
+
+        var unit = this.opponentsUnit();
+
+        if (!unit) {
+            return targets;
+        }
+
+        var frontTargets = [];
+
+        for (var i = 0; i < unit.members().length; i++) {
+            var member = unit.members()[i];
+
+            if (
+                member &&
+                !member.isDead() &&
+                !isEffectivelyRear(member)
+            ) {
+                frontTargets.push(member);
+            }
+        }
+
+        // Se não existe ninguém na frente, quem está recuado
+        // fica exposto e pode ser atingido.
+        if (frontTargets.length === 0) {
+            return targets;
+        }
+
+        for (var j = 0; j < targets.length; j++) {
+            var target = targets[j];
+
+            if (
+                target &&
+                isEffectivelyRear(target)
+            ) {
+                // Para ações de alvo único, mantém a escolha de
+                // um alvo da frente. Para ações com múltiplos
+                // alvos, substitui apenas o alvo inalcançável.
+                targets[j] =
+                    frontTargets[
+                        Math.floor(Math.random() * frontTargets.length)
+                    ];
+            }
+        }
+
+        return targets;
+    };
+
+    // =========================================================
 
     // =========================================================
     // INIMIGOS - ESCOLHA DE AÇÕES
