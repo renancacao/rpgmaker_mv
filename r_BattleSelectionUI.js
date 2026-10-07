@@ -248,4 +248,44 @@
         this._actorCommandWindow.setHandler('cancel', null);
     };
 
+    // =========================================================
+    // Salva o alvo quando o jogador confirma a seleção do inimigo
+    // =========================================================
+
+    // 1. Grava o índice do inimigo quando o jogador confirma o ataque/habilidade
+    var _Scene_Battle_onEnemyOk = Scene_Battle.prototype.onEnemyOk;
+    Scene_Battle.prototype.onEnemyOk = function () {
+        var actor = BattleManager.actor();
+        if (actor) {
+            // Guarda qual a posição (índice) do inimigo no grupo (troop)
+            actor._lastTargetEnemyIndex = this._enemyWindow.enemy().index();
+        }
+        _Scene_Battle_onEnemyOk.call(this);
+    };
+
+    // 2. Intercepta o momento em que a janela de inimigos é aberta na cena de batalha
+    var _Scene_Battle_selectEnemySelection = Scene_Battle.prototype.selectEnemySelection;
+    Scene_Battle.prototype.selectEnemySelection = function () {
+        _Scene_Battle_selectEnemySelection.call(this);
+
+        var actor = BattleManager.actor();
+        if (actor && actor._lastTargetEnemyIndex !== undefined) {
+            var troopMembers = $gameTroop.members();
+            var savedIndex = actor._lastTargetEnemyIndex;
+
+            // Procura o inimigo correspondente na batalha atual
+            var enemy = troopMembers[savedIndex];
+
+            // Se ele existir e ainda estiver vivo, força o cursor a focar nele
+            if (enemy && enemy.isAlive()) {
+                // No RPG Maker, a janela de inimigos filtra apenas os vivos, 
+                // então precisamos achar a posição visual dele na lista atual.
+                var visualIndex = this._enemyWindow._enemies.indexOf(enemy);
+                if (visualIndex >= 0) {
+                    this._enemyWindow.select(visualIndex);
+                }
+            }
+        }
+    };
+
 })();
